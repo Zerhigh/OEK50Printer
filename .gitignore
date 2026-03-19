@@ -13,5 +13,7 @@ pdfs
 test_scripts
 tiled_images
 pdfs300
+__pycache__
 
-.idea
+.idea/*
+__pycache__/*
