@@ -1,0 +1,15 @@
+files/*
+images/*
+input/*
+pdfs/*
+test_scripts/*
+tiled_images/*
+
+files
+images
+input
+pdfs
+test_scripts
+tiled_images
+
+.idea
