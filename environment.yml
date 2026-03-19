@@ -1,0 +1,16 @@
+name: geo
+channels:
+  - conda-forge
+dependencies:
+  python=3.10.16
+  branca==0.6.0
+  folium==0.19.4
+  geopandas==1.0.1
+  matplotlib==3.10.8
+  numpy==2.4.3
+  pandas==3.0.1
+  Pillow==12.1.1
+  pyproj==3.7.1
+  rasterio==1.4.3
+  Shapely==2.1.2
+  tqdm==4.67.1

@@ -234,7 +234,7 @@ def tile_img(fn: Path,
 
 
 if __name__ == '__main__':
-    img_path = Path("images/kamp.tif")
+    img_path = Path("images/thernberg.tif")
     assert img_path.exists()
 
     out_path = Path('pdfs')

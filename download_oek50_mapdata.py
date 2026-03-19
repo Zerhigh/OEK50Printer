@@ -126,9 +126,9 @@ def merge_data(gdf: gpd.GeoDataFrame,
 
 if __name__ == '__main__':
     start = time.time()
-    AOI_file = Path('inputs/bbox_kamp.geojson')
+    AOI_file = Path('inputs/bbox_thernberg.geojson')
     oek50_ref_data = Path('files/oek_50_reference.gpkg')
-    outfile = Path('images/kamp.tif')
+    outfile = Path('images/thernberg.tif')
 
     assert AOI_file.exists()
     assert oek50_ref_data.exists()
