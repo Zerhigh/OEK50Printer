@@ -4,6 +4,7 @@ input/*
 pdfs/*
 test_scripts/*
 tiled_images/*
+pfds300/*
 
 files
 images
@@ -11,5 +12,6 @@ input
 pdfs
 test_scripts
 tiled_images
+pdfs300
 
 .idea
