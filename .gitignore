@@ -1,14 +1,10 @@
 images/*
-pdfs/*
 test_scripts/*
 tiled_images/*
-pfds300/*
 
 images
-pdfs
 test_scripts
 tiled_images
-pdfs300
 
 __pycache__
 .idea/*

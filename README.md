@@ -86,7 +86,7 @@ If you want to download some maps yourself or just play around with it, use the 
 
 2. **Select AOI**
 
-    Use `bbox_map.py` to generate a `html` file (also already available in `/files/bbox_draw_map.html`) in which you can draw a bounding box in Austria and export it as a `geojson`. This will download it into your local `Downloads` folder, so be sure to copy it into the `inputs` directory from where it will be loaded in the next steps.
+    Use `bbox_map.py` to generate a `html` file (also already available in `/files/bbox_draw_map.html`), open it in the browser, and use it to draw a bounding box in Austria and export it as a `geojson`. This will download it into your local `Downloads` folder, so be sure to copy it into the `inputs` directory from where it will be loaded in the next steps.
    Be cautious when accessing map data outside of Austria. While it is available in theory (see `oek_50_reference.gpkg` in QGIS for reference), its not fully tested in these scripts.
 
 
