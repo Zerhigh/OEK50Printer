@@ -1,19 +1,15 @@
-files/*
 images/*
-input/*
 pdfs/*
 test_scripts/*
 tiled_images/*
 pfds300/*
 
-files
 images
-input
 pdfs
 test_scripts
 tiled_images
 pdfs300
-__pycache__
 
+__pycache__
 .idea/*
 __pycache__/*

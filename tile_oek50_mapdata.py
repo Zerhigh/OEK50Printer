@@ -1,11 +1,13 @@
-import rasterio as rio
-from rasterio import windows
+import os
 import math
+import time
+import rasterio as rio
+import numpy as np
+
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
-import matplotlib.pyplot as plt
-import numpy as np
 from typing import List, Tuple
+from rasterio import windows
 
 
 def mm_to_pix(val: int | float):
@@ -103,10 +105,13 @@ def tile_img(fn: Path,
              margin_unit: str = 'mm',
              scale_bar_marks: List[int] | None = None,
              add_folding_lines: bool = True,
-             folding_line_method: str = 'minimal') -> None:
+             folding_line_method: str = 'minimal',
+             combine_pdfs: bool = True,
+             verbose: bool = False) -> None:
 
     assert to_file in ['pdf', 'tif']
     assert folding_line_method in ['minimal', 'full']
+    assert margin_unit in ['mm']
 
     page_width_px, page_height_px = 3508, 2480
 
@@ -114,12 +119,8 @@ def tile_img(fn: Path,
     if to_file == 'tif':
         metainfo_margin = 0
 
-    if margin_unit == 'mm':
-        print_margin_px = mm_to_pix(print_margin)
-        metainfo_margin_px = mm_to_pix(metainfo_margin)
-    else:
-        print('margin unit not viable')
-        return None
+    print_margin_px = mm_to_pix(print_margin)
+    metainfo_margin_px = mm_to_pix(metainfo_margin)
 
     base_available_page_width = page_width_px - 2 * (print_margin_px + metainfo_margin_px)
     base_available_page_height = page_height_px - 2 * (print_margin_px + metainfo_margin_px)
@@ -130,7 +131,6 @@ def tile_img(fn: Path,
             # force override scale bars
             if not scale_bar_marks:
                 scale_bar_marks = [250, 500, 1000, 2000, 3000, 4000, 5000]
-                print(f'scale marks are created automatically: {scale_bar_marks}')
 
             blank_page = Image.new('RGB', (page_width_px, page_height_px), color=(255, 255, 255))
 
@@ -140,16 +140,18 @@ def tile_img(fn: Path,
                                                               vertical_shape=metainfo_margin_px - 10,
                                                               max_horizontal_shape=base_available_page_width)
 
+            # adding text description of scale bar
             margined_text = [(val+print_margin_px+2*metainfo_margin_px, print_margin_px+20) for val in horizontal_positions]
             scale_bar_texts = ['0m']
             for mark in scale_bar_marks:
                 scale_bar_texts.append(f'{mark}m')
-            #scale_bar_texts = [f'{mark}m' for mark in scale_bar_marks]
+
             draw = ImageDraw.Draw(blank_page)
             font = ImageFont.truetype("arial.ttf", 30)
             for (x, y), text in zip(margined_text, scale_bar_texts):
                 draw.text((x, y), text, fill=(0, 0, 0), font=font)
 
+            # add info to blank page
             paste_box = (print_margin_px + 2 * metainfo_margin_px, print_margin_px + metainfo_margin_px)
             blank_page.paste(Image.fromarray(scalebar), paste_box)
         else:
@@ -157,6 +159,10 @@ def tile_img(fn: Path,
 
         tiles_x = math.ceil(src.width / base_available_page_width)
         tiles_y = math.ceil(src.height / base_available_page_height)
+
+        if verbose:
+            print(f'    Tiling image {fn} as "{to_file}" into {tiles_y*tiles_x} individual files.')
+            print(f'    Images will overlap to maximise available page space.')
 
         # fit images to fill out and add overlap
         max_width = tiles_x * base_available_page_width
@@ -168,6 +174,7 @@ def tile_img(fn: Path,
         available_page_width = base_available_page_width - unused_width_per_tile
         available_page_height = base_available_page_height - unused_height_per_tile
 
+        pages = []
         for i in range(tiles_x):
             for j in range(tiles_y):
                 col_off = i * available_page_width
@@ -214,14 +221,34 @@ def tile_img(fn: Path,
                     font = ImageFont.truetype("arial.ttf", 30)
                     draw.text((print_margin_px + metainfo_margin_px, print_margin_px + metainfo_margin_px),
                               f'{j}_{i}', fill=(0, 0, 0), font=font)
+                    if combine_pdfs:
+                        pages.append(page)
+                    else:
+                        page.save(out_fn)
 
-                    page.save(out_fn)
-
+        if combine_pdfs:
+            pages[0].save(out_folder / f'{fn.stem}_combined.{to_file}',
+                          save_all=True,
+                          append_images=pages[1:])
     return None
 
 
-tile_img(Path("images/kamp_2.tif"),
-         out_folder=Path('pdfs'),
-         to_file='pdf',
-         scale_bar_marks=[250, 500, 1000, 2000, 3000, 4000, 5000]
-         )
+if __name__ == '__main__':
+    img_path = Path("images/kamp.tif")
+    assert img_path.exists()
+
+    out_path = Path('pdfs')
+    if not out_path.exists():
+        os.mkdir(out_path)
+
+    start = time.time()
+    print('Starting the process of tiling and annotating the inputs image into individual tifs/pdfs.')
+
+    tile_img(img_path,
+             out_folder=out_path,
+             to_file='pdf',
+             combine_pdfs=True,
+             verbose=True)
+
+    stop = time.time()
+    print(f'Splitting and saving image data took: {round(stop - start, 2)}s')

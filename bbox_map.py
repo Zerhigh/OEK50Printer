@@ -2,69 +2,76 @@ import folium
 from folium.plugins import Draw
 from branca.element import Element
 
-m = folium.Map(location=[47.5, 13.3], zoom_start=7)
-draw_layer = folium.FeatureGroup(name="drawn").add_to(m)
 
-draw = Draw(
-    draw_options={
-        "polyline": False,
-        "polygon": False,
-        "circle": False,
-        "marker": False,
-        "circlemarker": False,
-        "rectangle": True
-    },
-    edit_options={"edit": False},
-)
-draw.add_to(m)
+def create_map(out_fn: str) -> None:
+    m = folium.Map(location=[47.5, 13.3], zoom_start=7)
+    draw_layer = folium.FeatureGroup(name="drawn").add_to(m)
 
-clear_previous_js = f"""
-<script>
-document.addEventListener("DOMContentLoaded", function() {{
-    // get map variable dynamically
-    var map_obj = window.{m.get_name()};
+    draw = Draw(
+        draw_options={
+            "polyline": False,
+            "polygon": False,
+            "circle": False,
+            "marker": False,
+            "circlemarker": False,
+            "rectangle": True
+        },
+        edit_options={"edit": False},
+    )
+    draw.add_to(m)
 
-    // global variable for drawn items
-    window.drawnItems = null;
+    clear_previous_js = f"""
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {{
+        // get map variable dynamically
+        var map_obj = window.{m.get_name()};
 
-    map_obj.eachLayer(function(layer){{
-        if(layer instanceof L.FeatureGroup){{
-            window.drawnItems = layer;
-        }}
+        // global variable for drawn items
+        window.drawnItems = null;
+
+        map_obj.eachLayer(function(layer){{
+            if(layer instanceof L.FeatureGroup){{
+                window.drawnItems = layer;
+            }}
+        }});
+
+        map_obj.on(L.Draw.Event.CREATED, function (e) {{
+            window.drawnItems.clearLayers();     // remove old bbox
+            window.drawnItems.addLayer(e.layer); // add new bbox
+        }});
     }});
+    </script>
+    """
+    m.get_root().html.add_child(Element(clear_previous_js))
 
-    map_obj.on(L.Draw.Event.CREATED, function (e) {{
-        window.drawnItems.clearLayers();     // remove old bbox
-        window.drawnItems.addLayer(e.layer); // add new bbox
-    }});
-}});
-</script>
-"""
-m.get_root().html.add_child(Element(clear_previous_js))
+    download_js = """
+    <script>
+    function downloadGeoJSON(){
+        if (!window.drawnItems || window.drawnItems.getLayers().length === 0){
+            alert("No bbox drawn yet!");
+            return;
+        }
+        var data = window.drawnItems.toGeoJSON();
+        var blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+        var url = URL.createObjectURL(blob);
 
-download_js = """
-<script>
-function downloadGeoJSON(){
-    if (!window.drawnItems || window.drawnItems.getLayers().length === 0){
-        alert("No bbox drawn yet!");
-        return;
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = `bbox_selection_${(new Date().toJSON().slice(0,19))}.geojson`
+        a.click();
     }
-    var data = window.drawnItems.toGeoJSON();
-    var blob = new Blob([JSON.stringify(data)], {type: "application/json"});
-    var url = URL.createObjectURL(blob);
+    </script>
 
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = `bbox_selection_${(new Date().toJSON().slice(0,19))}.geojson`
-    a.click();
-}
-</script>
+    <button onclick="downloadGeoJSON()" 
+    style="position:absolute; top:10px; right:10px; z-index:1000;">
+    Download bbox
+    </button>
+    """
 
-<button onclick="downloadGeoJSON()" 
-style="position:absolute; top:10px; right:10px; z-index:1000;">
-Download bbox
-</button>
-"""
+    m.get_root().html.add_child(Element(download_js))
+    m.save(out_fn)
+    return None
 
-m.get_root().html.add_child(Element(download_js))
-m.save("bbox_draw_m.html")
+
+if __name__ == '__main__':
+    create_map(out_fn="files/bbox_draw_map.html")

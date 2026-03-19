@@ -1,14 +1,13 @@
+import os
 import time
-
 import rasterio as rio
-import rasterio.merge
-import shapely.geometry
-from rasterio import windows, warp, io
-from typing import Tuple, Any, Dict, List
-import numpy as np
-from pathlib import Path
 import geopandas as gpd
-import pandas as pd
+import shapely.geometry
+
+from rasterio import windows, warp, io, merge
+from typing import Tuple, Any, Dict, List
+from pathlib import Path
+
 from utils import reproject_geom, get_geom_from_geojson
 
 
@@ -40,8 +39,11 @@ def determine_trgt_crs(gdf: gpd.GeoDataFrame, geom: shapely.geometry.Polygon) ->
         return gdf, gdf['src_crs'].iloc[0], True
 
 
-def raster_logic(url: str, bounds_poly: shapely.geometry.Polygon, raster_crs: str,
+def raster_logic(url: str,
+                 bounds_poly: shapely.geometry.Polygon,
+                 raster_crs: str,
                  trgt_crs: str) -> rio.MemoryFile | rio.DatasetReader:
+    # if already in correct crs just return it opened for rio.merge()
     if raster_crs == trgt_crs:
         return rio.open(url, mode='r')
 
@@ -80,7 +82,8 @@ def merge_data(gdf: gpd.GeoDataFrame,
                trgt_crs: int | str,
                single_crs: bool,
                output_path: Path,
-               compression_options: Dict | None = None) -> None:
+               compression_options: Dict | None = None,
+               verbose=False) -> None:
     if isinstance(trgt_crs, int):
         trgt_crs = f'EPSG:{trgt_crs}'
 
@@ -92,9 +95,16 @@ def merge_data(gdf: gpd.GeoDataFrame,
                                "jpeg_quality": 85,
                                "interleave": "pixel"}
 
-    print(f'downlaoding and merging data from {len(gdf)} tiles')
+    if verbose:
+        print(f'    Downloading and merging data from {len(gdf)} tiles')
+        print('    This might take some time, depending on your internet speed and AOI area.')
+        print('    Expect one minute per 400 million square meter.')
+
     if not single_crs:
         # complicated approach as different crs samples are used
+        if verbose:
+            print(f'    Tiles cover multiple UTM strips, data will be merged into {trgt_crs}')
+
         src_url = [raster_logic(url=row['url'],
                                 bounds_poly=bounds_poly,
                                 raster_crs=row['src_crs'],
@@ -114,40 +124,32 @@ def merge_data(gdf: gpd.GeoDataFrame,
     return None
 
 
-start = time.time()
-# in 3416
-# sample_linz_four_boxes = shapely.geometry.box(470947, 487593, 475309, 491080)
-# sample_border_crs33 = shapely.geometry.box(320010, 383643, 329011, 387684)
-# sample_border_both_crs = shapely.geometry.box(266875, 324372, 324215, 350435)
+if __name__ == '__main__':
+    start = time.time()
+    AOI_file = Path('inputs/bbox_kamp.geojson')
+    oek50_ref_data = Path('files/oek_50_reference.gpkg')
+    outfile = Path('images/kamp.tif')
 
+    assert AOI_file.exists()
+    assert oek50_ref_data.exists()
+    if not outfile.parent.exists():
+        os.mkdir(outfile.parent)
 
-# sampels = {'four_boxes': {'geometry': sample_linz_four_boxes},
-#            'intersection_33_tirol': {'geometry': sample_border_crs33},
-#            'intersection_both_crs_tirol': {'geometry': sample_border_both_crs},
-#            'kamp': {'geometry': curr_sample}}
-# sampels_gdf = gpd.GeoDataFrame(pd.DataFrame.from_dict(sampels, orient='index'), crs=3416)
-# sampels_gdf.to_file('files/samples.gpkg', driver='GPKG')
+    print(f'Downloading map data for the AOI provided in: {AOI_file}')
 
-AOI = get_geom_from_geojson(Path('input/bbox_thernberg.geojson'), to_crs=3416, src_crs=4326)
-gdf = gpd.read_file('files/oek_50_reference.gpkg')
-outfile = Path('images/thernberg.tif')
+    AOI = get_geom_from_geojson(AOI_file, to_crs=3416, src_crs=4326)
+    gdf = gpd.read_file(oek50_ref_data)
 
-req_imgs = gdf[gdf.intersects(AOI)]
-req_imgs, trgt_crs, single_crs_req = determine_trgt_crs(req_imgs, geom=AOI)
+    req_imgs = gdf[gdf.intersects(AOI)]
+    req_imgs, trgt_crs, single_crs_req = determine_trgt_crs(req_imgs, geom=AOI)
 
-# reproject
-merge_data(req_imgs,
-           bounds_poly=AOI,
-           trgt_crs=trgt_crs,
-           single_crs=single_crs_req,
-           output_path=outfile)
+    # reproject
+    merge_data(req_imgs,
+               bounds_poly=AOI,
+               trgt_crs=trgt_crs,
+               single_crs=single_crs_req,
+               output_path=outfile,
+               verbose=True)
 
-stop = time.time()
-print(stop - start)
-
-# process:
-# get bbox for map
-# intersect with gdf and retrieve img data (img, transform, bounds)
-# merge together
-# seperate onto pdf
-# add metadata
+    stop = time.time()
+    print(f'Downloading image data took: {round(stop - start, 2)}s')
